@@ -8,13 +8,13 @@ interface FirebaseConfigViewProps {
 }
 
 export default function FirebaseConfigView({ initialConfig, onSaveConfig }: FirebaseConfigViewProps) {
-  const [apiKey, setApiKey] = useState('');
-  const [authDomain, setAuthDomain] = useState('');
-  const [projectId, setProjectId] = useState('');
-  const [storageBucket, setStorageBucket] = useState('');
-  const [messagingSenderId, setMessagingSenderId] = useState('');
-  const [appId, setAppId] = useState('');
-  const [measurementId, setMeasurementId] = useState('');
+  const [apiKey, setApiKey] = useState('AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE');
+  const [authDomain, setAuthDomain] = useState('armazemfacil-b2292.firebaseapp.com');
+  const [projectId, setProjectId] = useState('armazemfacil-b2292');
+  const [storageBucket, setStorageBucket] = useState('armazemfacil-b2292.appspot.com');
+  const [messagingSenderId, setMessagingSenderId] = useState('688234941301');
+  const [appId, setAppId] = useState('1:688234941301:web:153e2ad3f634379fe3213c');
+  const [measurementId, setMeasurementId] = useState('G-6HFDEKWVDB');
 
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
@@ -22,15 +22,30 @@ export default function FirebaseConfigView({ initialConfig, onSaveConfig }: Fire
   // Populate state on mount or when initialConfig changes
   useEffect(() => {
     if (initialConfig) {
-      setApiKey(initialConfig.apiKey || '');
-      setAuthDomain(initialConfig.authDomain || '');
-      setProjectId(initialConfig.projectId || '');
-      setStorageBucket(initialConfig.storageBucket || '');
-      setMessagingSenderId(initialConfig.messagingSenderId || '');
-      setAppId(initialConfig.appId || '');
-      setMeasurementId(initialConfig.measurementId || '');
+      setApiKey(initialConfig.apiKey || 'AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE');
+      setAuthDomain(initialConfig.authDomain || 'armazemfacil-b2292.firebaseapp.com');
+      setProjectId(initialConfig.projectId || 'armazemfacil-b2292');
+      setStorageBucket(initialConfig.storageBucket || 'armazemfacil-b2292.appspot.com');
+      setMessagingSenderId(initialConfig.messagingSenderId || '688234941301');
+      setAppId(initialConfig.appId || '1:688234941301:web:153e2ad3f634379fe3213c');
+      setMeasurementId(initialConfig.measurementId || 'G-6HFDEKWVDB');
     }
   }, [initialConfig]);
+
+  const handleRestoreDefault = () => {
+    setApiKey('AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE');
+    setAuthDomain('armazemfacil-b2292.firebaseapp.com');
+    setProjectId('armazemfacil-b2292');
+    setStorageBucket('armazemfacil-b2292.appspot.com');
+    setMessagingSenderId('688234941301');
+    setAppId('1:688234941301:web:153e2ad3f634379fe3213c');
+    setMeasurementId('G-6HFDEKWVDB');
+    setStatusMessage({
+      type: 'info',
+      text: 'Campos preenchidos com as credenciais padrão do projeto!'
+    });
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
 
   const handleSave = () => {
     if (!apiKey.trim() || !authDomain.trim() || !projectId.trim() || !appId.trim()) {
@@ -313,6 +328,17 @@ export default function FirebaseConfigView({ initialConfig, onSaveConfig }: Fire
               >
                 <RefreshCw className={`h-4 w-4 ${isTesting ? 'animate-spin' : ''}`} />
                 <span>Testar Conexão</span>
+              </button>
+
+              {/* AUTO-PREENCHER PADRÃO */}
+              <button
+                type="button"
+                onClick={handleRestoreDefault}
+                disabled={isTesting}
+                className="bg-amber-50 dark:bg-amber-950/20 hover:bg-amber-100 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 font-bold text-xs uppercase px-6 py-3.5 rounded-lg flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Auto-preencher Padrão</span>
               </button>
             </div>
 

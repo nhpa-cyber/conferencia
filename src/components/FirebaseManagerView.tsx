@@ -14,14 +14,14 @@ interface FirebaseConfig {
 
 export default function FirebaseManagerView() {
   const [config, setConfig] = useState<FirebaseConfig>({
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: '',
-    measurementId: '',
-    firestoreDatabaseId: ''
+    apiKey: 'AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE',
+    authDomain: 'armazemfacil-b2292.firebaseapp.com',
+    projectId: 'armazemfacil-b2292',
+    storageBucket: 'armazemfacil-b2292.appspot.com',
+    messagingSenderId: '688234941301',
+    appId: '1:688234941301:web:153e2ad3f634379fe3213c',
+    measurementId: 'G-6HFDEKWVDB',
+    firestoreDatabaseId: '(default)'
   });
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -386,25 +386,50 @@ export default function FirebaseManagerView() {
                 </button>
               ) : <div />}
 
-              {/* Save/Test Button */}
-              <button
-                type="submit"
-                disabled={saving || clearing}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold px-6 py-2.5 rounded-xl transition text-xxs tracking-wider uppercase flex items-center space-x-2 cursor-pointer shadow-sm disabled:opacity-50"
-                id="btn_save_firebase"
-              >
-                {saving ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>Conectando & Testando...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Salvar e Testar Conexão</span>
-                  </>
-                )}
-              </button>
+              <div className="flex flex-wrap gap-3">
+                {/* Auto-preencher Padrão */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfig({
+                      apiKey: 'AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE',
+                      authDomain: 'armazemfacil-b2292.firebaseapp.com',
+                      projectId: 'armazemfacil-b2292',
+                      storageBucket: 'armazemfacil-b2292.appspot.com',
+                      messagingSenderId: '688234941301',
+                      appId: '1:688234941301:web:153e2ad3f634379fe3213c',
+                      measurementId: 'G-6HFDEKWVDB',
+                      firestoreDatabaseId: '(default)'
+                    });
+                    setSuccessMessage('Campos preenchidos com as credenciais padrão do projeto!');
+                    setTimeout(() => setSuccessMessage(null), 3000);
+                  }}
+                  className="bg-amber-50 hover:bg-amber-100 text-amber-800 font-extrabold px-4 py-2.5 rounded-xl border border-amber-200 transition text-xxs tracking-wider uppercase flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Preencher Padrão</span>
+                </button>
+
+                {/* Save/Test Button */}
+                <button
+                  type="submit"
+                  disabled={saving || clearing}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold px-6 py-2.5 rounded-xl transition text-xxs tracking-wider uppercase flex items-center space-x-2 cursor-pointer shadow-sm disabled:opacity-50"
+                  id="btn_save_firebase"
+                >
+                  {saving ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Conectando & Testando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Salvar e Testar Conexão</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
             </div>
           </form>
