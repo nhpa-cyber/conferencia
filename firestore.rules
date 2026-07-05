@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Helper to check if the document ID is within the explicit catalog keys
+    function isAllowedDoc(docId) {
+      return docId == "users" ||
+             docId == "drivers" ||
+             docId == "vehicles" ||
+             docId == "products" ||
+             docId == "activeAssets" ||
+             docId == "audits" ||
+             docId == "vales" ||
+             docId == "returnForecasts" ||
+             docId == "fiscalAlerts" ||
+             docId == "importedRoutes" ||
+             docId == "photos" ||
+             docId == "audit_logs";
+    }
+
+    // Helper to validate the structured array envelope of the App State documents
+    function isValidAppState(incomingData) {
+      return incomingData.keys().hasAll(['data']) &&
+             incomingData.keys().size() == 1 &&
+             incomingData.data is list;
+    }
+
+    // Secure the app_state collection
+    match /app_state/{documentId} {
+      allow read: if true;
+      allow write: if isAllowedDoc(documentId) && isValidAppState(request.resource.data);
+    }
+
+    // Secure the photos collection
+    match /photos/{photoId} {
+      allow read, write: if true;
+    }
+  }
+}

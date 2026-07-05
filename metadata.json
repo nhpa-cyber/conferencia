@@ -1,6 +1,10 @@
 {
-  "name": "Importador de Repositórios GitHub",
-  "description": "Explore, analise e interaja com repositórios públicos do GitHub através de análises de código inteligentes geradas por IA (Gemini).",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "RETORNO DE ROTA PAU BRASIL GUARABIRA",
+  "description": "Plataforma de conferência de retorno de rota com controle físico de produtos e ativos de giro, reconciliação fiscal e dashboard gerencial.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
