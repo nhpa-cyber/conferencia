@@ -3084,9 +3084,67 @@ export const DEFAULT_ACTIVE_ASSETS: ActiveAsset[] = [
 ];
 
 export const DEFAULT_USERS: User[] = [
-  { id: 'usr_1', name: 'Alice Conferente', role: 'conferente', username: 'conferente1', password: '123' },
-  { id: 'usr_2', name: 'Bruno Fiscal', role: 'auxiliar_logistica', username: 'auxiliar1', password: '123' },
-  { id: 'usr_3', name: 'Elisson Minervino', role: 'gestor', username: 'gestor1', password: '123' },
-  { id: 'usr_4', name: 'Carlos Motorista', role: 'conferente', username: 'motorista1', password: '123' },
-  { id: 'usr_5', name: 'Daniel Monitoramento', role: 'monitoramento', username: 'monitor1', password: '123' }
+  {
+    id: "usr_1782481995449",
+    role: "conferente",
+    username: "g1145",
+    password: "123",
+    name: "GLADSON LISBOA"
+  },
+  {
+    id: "usr_1782482023049",
+    role: "conferente",
+    username: "g1088",
+    password: "123",
+    name: "GILSON ROSA"
+  },
+  {
+    id: "usr_1782482081189",
+    username: "g1163",
+    password: "Ambev10",
+    name: "ALÉCYA FERREIRA",
+    role: "auxiliar_logistica"
+  },
+  {
+    id: "usr_1782482101263",
+    role: "gestor",
+    name: "DJEANDERSON SOARES",
+    password: "!Liz1105",
+    username: "g1002"
+  },
+  {
+    id: "usr_1782482138597",
+    role: "monitoramento",
+    name: "VICTOR MARINHO",
+    password: "123",
+    username: "g1083"
+  },
+  {
+    id: "usr_1782482170529",
+    name: "LUIZ EDUARDO",
+    password: "123",
+    username: "g1149",
+    role: "monitoramento"
+  },
+  {
+    id: "usr_1782482189381",
+    username: "7224",
+    password: "123",
+    name: "ELISSON MINERVINO",
+    role: "gestor"
+  },
+  {
+    id: "usr_1782482208921",
+    role: "gestor",
+    username: "7171",
+    name: "MARCOS GUILHERME",
+    password: "Ambev10"
+  },
+  {
+    id: "usr_1782748019419",
+    username: "g1078",
+    name: "Rafael Rodrigues",
+    password: "Ambev10",
+    role: "monitoramento"
+  }
 ];

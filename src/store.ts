@@ -30,7 +30,13 @@ const setStored = <T>(key: string, val: T): void => {
 // Initial state initialization
 export class AppStore {
   static getUsers(): User[] {
-    return getStored<User[]>('logiroute_users', DEFAULT_USERS);
+    const users = getStored<User[]>('logiroute_users', DEFAULT_USERS);
+    // Upgrade existing LocalStorage if it contains the old mock data (e.g. 'conferente1')
+    if (users && users.some(u => u.username === 'conferente1')) {
+      localStorage.setItem('logiroute_users', JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS;
+    }
+    return users;
   }
 
   static setUsers(users: User[]): void {
