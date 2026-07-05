@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#020617" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/jpeg" href="/pau_brasil_logo.jpg" />
+    <link rel="manifest" href="%BASE_URL%manifest.json" />
+    <link rel="icon" type="image/jpeg" href="%BASE_URL%pau_brasil_logo.jpg" />
     <title>RETORNO DE ROTA PAU BRASIL GUARABIRA</title>
   </head>
   <body>
@@ -16,9 +16,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          const isGitHubPages = window.location.hostname.includes('github.io');
-          const swUrl = isGitHubPages ? '/conferencia/sw.js' : '/sw.js';
-          navigator.serviceWorker.register(swUrl)
+          navigator.serviceWorker.register('%BASE_URL%sw.js')
             .then(reg => console.log('PWA Service Worker registrado com sucesso:', reg.scope))
             .catch(err => console.warn('Erro ao registrar Service Worker do PWA:', err));
         });
