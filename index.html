@@ -16,7 +16,9 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          const isGitHubPages = window.location.hostname.includes('github.io');
+          const swUrl = isGitHubPages ? '/conferencia/sw.js' : '/sw.js';
+          navigator.serviceWorker.register(swUrl)
             .then(reg => console.log('PWA Service Worker registrado com sucesso:', reg.scope))
             .catch(err => console.warn('Erro ao registrar Service Worker do PWA:', err));
         });

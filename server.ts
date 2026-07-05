@@ -845,7 +845,11 @@ Instruções para Resposta:
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    app.use('/conferencia', express.static(distPath));
     app.use(express.static(distPath));
+    app.get('/conferencia/*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
