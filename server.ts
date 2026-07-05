@@ -60,6 +60,17 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 const DB_FILE_PATH = path.join(process.cwd(), "database.json");
 const FIREBASE_CONFIG_PATH = path.join(process.cwd(), "firebase-applet-config.json");
 
+const DEFAULT_FIREBASE_CONFIG = {
+  projectId: "armazemfacil-b2292",
+  appId: "1:688234941301:web:153e2ad3f634379fe3213c",
+  apiKey: "AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE",
+  authDomain: "armazemfacil-b2292.firebaseapp.com",
+  firestoreDatabaseId: "(default)",
+  storageBucket: "armazemfacil-b2292.appspot.com",
+  messagingSenderId: "688234941301",
+  measurementId: "G-6HFDEKWVDB"
+};
+
 const DB_KEYS = [
   "users", "drivers", "vehicles", "products", "activeAssets", 
   "audits", "vales", "returnForecasts", "fiscalAlerts", 
@@ -78,13 +89,23 @@ let clients: any[] = [];
 async function initFirebase() {
   if (firestoreDb) return;
   try {
+    let config = { ...DEFAULT_FIREBASE_CONFIG };
     const configExists = await fs.access(FIREBASE_CONFIG_PATH).then(() => true).catch(() => false);
-    if (!configExists) {
-      console.log("Arquivo firebase-applet-config.json não localizado. Usando armazenamento local apenas.");
-      return;
+    if (configExists) {
+      try {
+        const configContent = await fs.readFile(FIREBASE_CONFIG_PATH, "utf-8");
+        const parsed = JSON.parse(configContent);
+        if (parsed && parsed.apiKey) {
+          config = { ...config, ...parsed };
+        }
+      } catch (e) {
+        console.warn("Erro ao ler firebase-applet-config.json. Usando configuração padrão.");
+      }
+    } else {
+      console.log("Arquivo firebase-applet-config.json não localizado. Usando configuração padrão hardcoded.");
+      // Forçamos a criação do arquivo com a config padrão para garantir que exista
+      await fs.writeFile(FIREBASE_CONFIG_PATH, JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2), "utf-8").catch(() => {});
     }
-    const configContent = await fs.readFile(FIREBASE_CONFIG_PATH, "utf-8");
-    const config = JSON.parse(configContent);
     
     let app;
     const apps = getApps();
@@ -666,18 +687,22 @@ async function startServer() {
   // API Route to get current Firebase connection status and config
   app.get("/api/firebase/config", async (req, res) => {
     try {
+      let config = { ...DEFAULT_FIREBASE_CONFIG };
       const configExists = await fs.access(FIREBASE_CONFIG_PATH).then(() => true).catch(() => false);
-      if (!configExists) {
-        return res.json({
-          success: true,
-          configured: false,
-          connectionStatus: "not_configured",
-          config: null
-        });
+      if (configExists) {
+        try {
+          const configContent = await fs.readFile(FIREBASE_CONFIG_PATH, "utf-8");
+          const parsed = JSON.parse(configContent);
+          if (parsed && parsed.apiKey) {
+            config = { ...config, ...parsed };
+          }
+        } catch (e) {
+          // ignore
+        }
+      } else {
+        // Criar o arquivo de configuração padrão se ele não existir
+        await fs.writeFile(FIREBASE_CONFIG_PATH, JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2), "utf-8").catch(() => {});
       }
-
-      const configContent = await fs.readFile(FIREBASE_CONFIG_PATH, "utf-8");
-      const config = JSON.parse(configContent);
 
       res.json({
         success: true,
@@ -748,13 +773,11 @@ async function startServer() {
     }
   });
 
-  // API Route to clear Firebase config (disconnect)
+  // API Route to clear Firebase config (disconnect / reset to default)
   app.post("/api/firebase/clear", async (req, res) => {
     try {
-      const configExists = await fs.access(FIREBASE_CONFIG_PATH).then(() => true).catch(() => false);
-      if (configExists) {
-        await fs.unlink(FIREBASE_CONFIG_PATH);
-      }
+      // Em vez de excluir, restauramos as configurações de conexão padrão do Firebase do projeto
+      await fs.writeFile(FIREBASE_CONFIG_PATH, JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2), "utf-8");
 
       // Reset instances
       try {
@@ -769,15 +792,15 @@ async function startServer() {
       firestoreDb = null;
       firestoreLoadedSuccessfully = false;
 
-      // Force a reload back to localfallback
+      // Force a reload back to default configuration
       await loadDatabaseOnStartup();
 
       res.json({
         success: true,
-        connected: false
+        connected: firestoreLoadedSuccessfully
       });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error?.message || "Erro ao desconectar Firebase" });
+      res.status(500).json({ success: false, error: error?.message || "Erro ao redefinir Firebase para o padrão" });
     }
   });
 
