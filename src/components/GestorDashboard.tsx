@@ -3,6 +3,7 @@ import { User, Driver, Vehicle, Product, ActiveAsset, AuditSession, UserRole, Im
 import { BarChart3, Users, Truck, ShoppingBag, Plus, Trash2, Shield, Clock, Landmark, Percent, CheckCircle2, AlertTriangle, RefreshCw, Eye, Search, Landmark as BankIcon, HardDrive, Camera, FileSpreadsheet, Sparkles, Check, FileCheck, CircleAlert, Edit, FileText, ZoomIn, ZoomOut, ArrowRight, UploadCloud, XCircle } from 'lucide-react';
 import { ImageDB, PhotoRecord } from '../imageDb';
 import { DEFAULT_USERS } from '../data';
+import FirebaseManagerView from './FirebaseManagerView';
 
 interface GestorDashboardProps {
   currentUser: User;
@@ -117,7 +118,7 @@ export default function GestorDashboard({
   const dashboardValeInputRef = React.useRef<HTMLInputElement>(null);
 
   // Navigation for Gestor views
-  const [gestorTab, setGestorTab] = useState<'dashboard' | 'cadastros' | 'sobras_faltas' | 'map_tracking' | 'refugos_dashboard' | 'audit_logs' | 'historico'>(
+  const [gestorTab, setGestorTab] = useState<'dashboard' | 'cadastros' | 'sobras_faltas' | 'map_tracking' | 'refugos_dashboard' | 'audit_logs' | 'historico' | 'firebase_sync'>(
     forceTab === 'cadastros' ? 'cadastros' : 'dashboard'
   );
 
@@ -1131,6 +1132,19 @@ export default function GestorDashboard({
           >
             <Shield className="h-4 w-4 text-indigo-600" />
             <span>Logs de Operações</span>
+          </button>
+
+          <button
+            onClick={() => setGestorTab('firebase_sync')}
+            className={`pb-4 px-5 font-sans font-bold text-sm tracking-tight border-b-2 transition flex items-center space-x-2 cursor-pointer ${
+              gestorTab === 'firebase_sync' 
+                ? 'border-amber-500 text-slate-900' 
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+            id="tab_firebase_sync"
+          >
+            <HardDrive className="h-4 w-4 text-orange-600" />
+            <span>Conexão Firebase</span>
           </button>
         </div>
       )}
@@ -4735,6 +4749,10 @@ export default function GestorDashboard({
             </div>
           </div>
         </div>
+      )}
+
+      {gestorTab === 'firebase_sync' && (
+        <FirebaseManagerView />
       )}
 
     </div>

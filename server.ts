@@ -5,7 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { promises as fs } from "fs";
 
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
 import { initializeFirestore, doc, getDoc, setDoc, getDocFromServer, setLogLevel, collection, getDocs } from "firebase/firestore";
 
 dotenv.config();
@@ -660,6 +660,124 @@ async function startServer() {
       }
     } catch (error: any) {
       res.status(500).json({ success: false, error: error?.message || "Erro ao podar fotos" });
+    }
+  });
+
+  // API Route to get current Firebase connection status and config
+  app.get("/api/firebase/config", async (req, res) => {
+    try {
+      const configExists = await fs.access(FIREBASE_CONFIG_PATH).then(() => true).catch(() => false);
+      if (!configExists) {
+        return res.json({
+          success: true,
+          configured: false,
+          connectionStatus: "not_configured",
+          config: null
+        });
+      }
+
+      const configContent = await fs.readFile(FIREBASE_CONFIG_PATH, "utf-8");
+      const config = JSON.parse(configContent);
+
+      res.json({
+        success: true,
+        configured: true,
+        connectionStatus: firestoreLoadedSuccessfully ? "connected" : "error",
+        config: {
+          apiKey: config.apiKey,
+          authDomain: config.authDomain,
+          projectId: config.projectId,
+          storageBucket: config.storageBucket,
+          messagingSenderId: config.messagingSenderId,
+          appId: config.appId,
+          measurementId: config.measurementId || "",
+          firestoreDatabaseId: config.firestoreDatabaseId || ""
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error?.message || "Erro ao carregar configuração do Firebase" });
+    }
+  });
+
+  // API Route to save Firebase config and test connection
+  app.post("/api/firebase/config", async (req, res) => {
+    try {
+      const { apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId, measurementId, firestoreDatabaseId } = req.body;
+      
+      if (!apiKey || !authDomain || !projectId || !appId) {
+        return res.status(400).json({ success: false, error: "Campos obrigatórios ausentes (API Key, Auth Domain, Project ID, App ID)" });
+      }
+
+      const newConfig = {
+        apiKey,
+        authDomain,
+        projectId,
+        storageBucket: storageBucket || "",
+        messagingSenderId: messagingSenderId || "",
+        appId,
+        measurementId: measurementId || "",
+        firestoreDatabaseId: firestoreDatabaseId || ""
+      };
+
+      // Write config
+      await fs.writeFile(FIREBASE_CONFIG_PATH, JSON.stringify(newConfig, null, 2), "utf-8");
+
+      // Reset existing Firebase App instances so we can re-initialize
+      try {
+        const apps = getApps();
+        for (const appInstance of apps) {
+          await deleteApp(appInstance);
+        }
+      } catch (appErr) {
+        console.warn("Erro ao deletar instâncias anteriores do app Firebase:", appErr);
+      }
+
+      firestoreDb = null;
+      firestoreLoadedSuccessfully = false;
+
+      // Force a reload attempt
+      await loadDatabaseOnStartup();
+
+      res.json({
+        success: true,
+        connected: firestoreLoadedSuccessfully,
+        config: newConfig
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error?.message || "Erro ao salvar configuração do Firebase" });
+    }
+  });
+
+  // API Route to clear Firebase config (disconnect)
+  app.post("/api/firebase/clear", async (req, res) => {
+    try {
+      const configExists = await fs.access(FIREBASE_CONFIG_PATH).then(() => true).catch(() => false);
+      if (configExists) {
+        await fs.unlink(FIREBASE_CONFIG_PATH);
+      }
+
+      // Reset instances
+      try {
+        const apps = getApps();
+        for (const appInstance of apps) {
+          await deleteApp(appInstance);
+        }
+      } catch (appErr) {
+        console.warn("Erro ao deletar instâncias anteriores do app Firebase ao limpar:", appErr);
+      }
+
+      firestoreDb = null;
+      firestoreLoadedSuccessfully = false;
+
+      // Force a reload back to localfallback
+      await loadDatabaseOnStartup();
+
+      res.json({
+        success: true,
+        connected: false
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error?.message || "Erro ao desconectar Firebase" });
     }
   });
 

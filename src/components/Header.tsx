@@ -3,7 +3,7 @@ import { User, UserRole, FiscalAlert } from '../types';
 import { 
   Shield, User as UserIcon, Truck, CheckCircle, BarChart3, Settings, 
   LogOut, FileSpreadsheet, Bell, Check, Clock, AlertCircle, FileText,
-  Sun, Moon
+  Sun, Moon, Database
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -297,6 +297,16 @@ export default function Header({
                 >
                   <Settings className="h-3.5 w-3.5 shrink-0" />
                   <span>Cadastros</span>
+                </button>
+                <button
+                  id="nav_gestor_firebase"
+                  onClick={() => setActiveTab('firebase_config')}
+                  className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium transition-all shrink-0 ${
+                    activeTab === 'firebase_config' ? 'bg-amber-500 text-slate-950 shadow-sm font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Database className="h-3.5 w-3.5 shrink-0" />
+                  <span>Firebase</span>
                 </button>
               </>
             )}
@@ -608,6 +618,14 @@ export default function Header({
                 }`}
               >
                 Cadastros
+              </button>
+              <button
+                onClick={() => setActiveTab('firebase_config')}
+                className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  activeTab === 'firebase_config' ? 'bg-amber-500 text-slate-950' : 'text-slate-400'
+                }`}
+              >
+                Firebase
               </button>
             </>
           )}

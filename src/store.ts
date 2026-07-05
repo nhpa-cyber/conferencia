@@ -1,4 +1,4 @@
-import { User, Driver, Vehicle, Product, ActiveAsset, AuditSession, AuditStatus, AuditItem, AuditAssetItem, ReturnForecast, FiscalAlert, ImportedRoute, Vale } from './types';
+import { User, Driver, Vehicle, Product, ActiveAsset, AuditSession, AuditStatus, AuditItem, AuditAssetItem, ReturnForecast, FiscalAlert, ImportedRoute, Vale, FirebaseConfig } from './types';
 import { DEFAULT_USERS, DEFAULT_DRIVERS, DEFAULT_VEHICLES, DEFAULT_PRODUCTS, DEFAULT_ACTIVE_ASSETS } from './data';
 
 // LocalStorage helpers
@@ -255,6 +255,14 @@ export class AppStore {
 
   static setAuditLogs(logs: any[]): void {
     setStored('logiroute_audit_logs', logs);
+  }
+
+  static getFirebaseConfig(): FirebaseConfig | null {
+    return getStored<FirebaseConfig | null>('logiroute_firebase_config', null);
+  }
+
+  static setFirebaseConfig(config: FirebaseConfig | null): void {
+    setStored('logiroute_firebase_config', config);
   }
 }
 

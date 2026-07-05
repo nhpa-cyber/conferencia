@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Driver, Vehicle, Product, ActiveAsset, AuditSession, ReturnForecast, FiscalAlert, ImportedRoute, Vale } from './types';
+import { User, Driver, Vehicle, Product, ActiveAsset, AuditSession, ReturnForecast, FiscalAlert, ImportedRoute, Vale, FirebaseConfig } from './types';
 import { AppStore } from './store';
 import { DEFAULT_PRODUCTS } from './data';
 import Header from './components/Header';
@@ -10,6 +10,7 @@ import LoginView from './components/LoginView';
 import MonitoramentoView from './components/MonitoramentoView';
 import PlatformManual from './components/PlatformManual';
 import AIAgentChat from './components/AIAgentChat';
+import FirebaseConfigView from './components/FirebaseConfigView';
 import { ClipboardCheck, ShieldCheck, BarChart3, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
   const [returnForecasts, setReturnForecasts] = useState<ReturnForecast[]>([]);
   const [fiscalAlerts, setFiscalAlerts] = useState<FiscalAlert[]>([]);
   const [importedRoutes, setImportedRoutes] = useState<ImportedRoute[]>([]);
+  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfig | null>(null);
 
   // Session & UI Navigation states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -96,6 +98,7 @@ export default function App() {
     fiscalAlerts?: FiscalAlert[];
     importedRoutes?: ImportedRoute[];
     vales?: Vale[];
+    firebaseConfig?: FirebaseConfig | null;
   }) => {
     lastWriteTime.current = Date.now();
     
@@ -164,6 +167,7 @@ export default function App() {
     setFiscalAlerts(AppStore.getFiscalAlerts());
     setImportedRoutes(AppStore.getImportedRoutes());
     setAuditLogs(AppStore.getAuditLogs());
+    setFirebaseConfig(AppStore.getFirebaseConfig());
 
     // Check persistent user ID if authenticated
     const savedUserId = localStorage.getItem('logiroute_authenticated_user_id');
@@ -200,6 +204,7 @@ export default function App() {
             if (db.fiscalAlerts) { setFiscalAlerts(db.fiscalAlerts); AppStore.setFiscalAlerts(db.fiscalAlerts); }
             if (db.importedRoutes) { setImportedRoutes(db.importedRoutes); AppStore.setImportedRoutes(db.importedRoutes); }
             if (db.audit_logs) { setAuditLogs(db.audit_logs); AppStore.setAuditLogs(db.audit_logs); }
+            if (db.firebaseConfig !== undefined) { setFirebaseConfig(db.firebaseConfig); AppStore.setFirebaseConfig(db.firebaseConfig); }
           } else {
             console.log("Banco de dados do servidor está em branco ou indisponível. Ignorando auto-sobreposição para segurança.");
           }
@@ -248,6 +253,7 @@ export default function App() {
             if (db.fiscalAlerts) { setFiscalAlerts(db.fiscalAlerts); AppStore.setFiscalAlerts(db.fiscalAlerts); }
             if (db.importedRoutes) { setImportedRoutes(db.importedRoutes); AppStore.setImportedRoutes(db.importedRoutes); }
             if (db.audit_logs) { setAuditLogs(db.audit_logs); AppStore.setAuditLogs(db.audit_logs); }
+            if (db.firebaseConfig !== undefined) { setFirebaseConfig(db.firebaseConfig); AppStore.setFirebaseConfig(db.firebaseConfig); }
           }
         }
       } catch (err) {
@@ -303,6 +309,7 @@ export default function App() {
             if (db.fiscalAlerts) { setFiscalAlerts(db.fiscalAlerts); AppStore.setFiscalAlerts(db.fiscalAlerts); }
             if (db.importedRoutes) { setImportedRoutes(db.importedRoutes); AppStore.setImportedRoutes(db.importedRoutes); }
             if (db.audit_logs) { setAuditLogs(db.audit_logs); AppStore.setAuditLogs(db.audit_logs); }
+            if (db.firebaseConfig !== undefined) { setFirebaseConfig(db.firebaseConfig); AppStore.setFirebaseConfig(db.firebaseConfig); }
           }
         } catch (err) {
           console.error("Error parsing real-time database event:", err);
@@ -426,6 +433,12 @@ export default function App() {
     setVales(newVales);
     AppStore.setVales(newVales);
     pushDatabaseToServer({ vales: newVales });
+  };
+
+  const handleSaveFirebaseConfig = (config: FirebaseConfig | null) => {
+    setFirebaseConfig(config);
+    AppStore.setFirebaseConfig(config);
+    pushDatabaseToServer({ firebaseConfig: config });
   };
 
   // Switch tabs when current user role changes
@@ -708,6 +721,13 @@ export default function App() {
                 onSaveVales={handleSaveVales}
                 forceTab="cadastros"
                 auditLogs={auditLogs}
+              />
+            )}
+
+            {activeTab === 'firebase_config' && (
+              <FirebaseConfigView
+                initialConfig={firebaseConfig}
+                onSaveConfig={handleSaveFirebaseConfig}
               />
             )}
           </>

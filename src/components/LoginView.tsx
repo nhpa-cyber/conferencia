@@ -59,7 +59,7 @@ export default function LoginView({ users, onLoginSuccess }: LoginViewProps) {
           {/* PAU BRASIL DISTRIBUIDORA AMBEV - LOGO AND TEXT */}
           <div className="mb-4 text-center flex flex-col items-center" id="pau_brasil_logo">
             <div className="w-20 h-20 bg-white p-1 rounded-xl shadow-md border border-slate-200 mb-3 overflow-hidden flex items-center justify-center">
-              <img src="/pau_brasil_logo.jpg" alt="Pau Brasil Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              <img src={`${import.meta.env.BASE_URL}pau_brasil_logo.jpg`} alt="Pau Brasil Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
             </div>
             <div className="font-sans font-black tracking-tight text-3xl flex flex-col items-center justify-center leading-none">
               <span className="text-[#0f35a9]">PAU BRASIL</span>
