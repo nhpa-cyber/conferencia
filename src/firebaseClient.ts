@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { AppStore } from "./store";
 
 export const DEFAULT_FIREBASE_CONFIG = {
@@ -22,7 +22,9 @@ export function getClientFirestore() {
     const savedConfig = AppStore.getFirebaseConfig();
     const config = savedConfig || DEFAULT_FIREBASE_CONFIG;
     const app = getApps().length === 0 ? initializeApp(config) : getApp();
-    dbInstance = getFirestore(app);
+    dbInstance = initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+    });
     return dbInstance;
   } catch (error) {
     console.error("Error initializing client Firestore:", error);

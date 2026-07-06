@@ -91,7 +91,8 @@ export class ImageDB {
         if (db) {
           const { doc, setDoc } = await import('firebase/firestore');
           const docRef = doc(db, 'photos', newRecord.id);
-          await setDoc(docRef, newRecord);
+          const cleanRecord = JSON.parse(JSON.stringify(newRecord));
+          await setDoc(docRef, cleanRecord);
           console.log('[Firestore Client Link] Foto salva diretamente no Firestore:', newRecord.id);
         }
       } catch (err) {

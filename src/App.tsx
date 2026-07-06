@@ -167,11 +167,25 @@ export default function App() {
             for (const key of payloadKeys) {
               if (payload[key] !== undefined && DB_KEYS.includes(key)) {
                 const docRef = doc(db, "app_state", key);
+                console.log(`[Firestore Client Link] [Criação/Atualização] Iniciando gravação direta no Firestore. Coleção: app_state, Documento/Chave: ${key}`);
+                console.log(`[Firestore Client Link] [Dados enviados para chave ${key}]:`, payload[key]);
                 try {
-                  await setDoc(docRef, { data: payload[key] });
-                  console.log(`[Firestore Client Link] Gravado diretamente no Firestore para a chave: ${key}`);
+                  // Clean any 'undefined' fields inside the object/array recursively by converting to/from JSON.
+                  // Firestore client SDK throws 'unsupported field value: undefined' on raw javascript objects with undefined properties.
+                  const cleanData = JSON.parse(JSON.stringify(payload[key]));
+                  console.log(`[Firestore Client Link] [Dados limpos (sem undefined) para chave ${key}]:`, cleanData);
+                  await setDoc(docRef, { data: cleanData });
+                  console.log(`[Firestore Client Link] Gravado com SUCESSO diretamente no Firestore para a chave: ${key}`);
                 } catch (setErr: any) {
-                  console.error(`Erro ao gravar chave '${key}' diretamente no Firestore:`, setErr);
+                  console.error(`[Firestore Client Link] ERRO CRÍTICO ao gravar chave '${key}' diretamente no Firestore:`, setErr);
+                  if (setErr && typeof setErr === 'object') {
+                    console.error("Detalhes do erro do Firestore:", {
+                      message: setErr.message,
+                      code: setErr.code,
+                      stack: setErr.stack,
+                      name: setErr.name
+                    });
+                  }
                 }
               }
             }
@@ -219,11 +233,25 @@ export default function App() {
           for (const key of payloadKeys) {
             if (payload[key] !== undefined && DB_KEYS.includes(key)) {
               const docRef = doc(db, "app_state", key);
+              console.log(`[Firestore Client Link] [Criação/Atualização - Flush] Iniciando gravação direta no Firestore. Coleção: app_state, Documento/Chave: ${key}`);
+              console.log(`[Firestore Client Link] [Flush - Dados enviados para chave ${key}]:`, payload[key]);
               try {
-                await setDoc(docRef, { data: payload[key] });
-                console.log(`[Firestore Client Link] Gravado diretamente no Firestore para a chave: ${key}`);
+                // Clean any 'undefined' fields inside the object/array recursively by converting to/from JSON.
+                // Firestore client SDK throws 'unsupported field value: undefined' on raw javascript objects with undefined properties.
+                const cleanData = JSON.parse(JSON.stringify(payload[key]));
+                console.log(`[Firestore Client Link] [Flush - Dados limpos (sem undefined) para chave ${key}]:`, cleanData);
+                await setDoc(docRef, { data: cleanData });
+                console.log(`[Firestore Client Link] Gravado com SUCESSO diretamente no Firestore para a chave: ${key}`);
               } catch (setErr: any) {
-                console.error(`Erro ao gravar chave '${key}' diretamente no Firestore:`, setErr);
+                console.error(`[Firestore Client Link] ERRO CRÍTICO ao gravar chave '${key}' diretamente no Firestore (Flush):`, setErr);
+                if (setErr && typeof setErr === 'object') {
+                  console.error("Detalhes do erro do Firestore (Flush):", {
+                    message: setErr.message,
+                    code: setErr.code,
+                    stack: setErr.stack,
+                    name: setErr.name
+                  });
+                }
               }
             }
           }
