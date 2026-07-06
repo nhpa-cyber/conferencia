@@ -13,7 +13,8 @@ import AIAgentChat from './components/AIAgentChat';
 import FirebaseConfigView from './components/FirebaseConfigView';
 import { ClipboardCheck, ShieldCheck, BarChart3, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { getClientFirestore } from "./firebaseClient";
 
 const DEFAULT_FIREBASE_CONFIG = {
   projectId: "armazemfacil-b2292",
@@ -141,8 +142,9 @@ export default function App() {
       // Extract only keys that have non-empty or updated content
       const payloadKeys = Object.keys(payload);
       if (payloadKeys.length > 0) {
+        let sseOrServerSuccess = false;
         try {
-          await fetch('/api/db', {
+          const res = await fetch('/api/db', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -150,8 +152,32 @@ export default function App() {
               user: currentUser ? { id: currentUser.id, name: currentUser.name, role: currentUser.role } : null
             }),
           });
+          if (res.ok) {
+            sseOrServerSuccess = true;
+          }
         } catch (err) {
           console.error('Failed to push batched database updates to server:', err);
+        }
+
+        // If the server update failed (e.g., on GitHub Pages), write directly to Firestore!
+        if (!sseOrServerSuccess) {
+          console.log("[Firestore Client Link] Servidor indisponível ou em produção (GitHub Pages). Gravando diretamente no Firestore...");
+          const db = getClientFirestore();
+          if (db) {
+            for (const key of payloadKeys) {
+              if (payload[key] !== undefined && DB_KEYS.includes(key)) {
+                const docRef = doc(db, "app_state", key);
+                try {
+                  await setDoc(docRef, { data: payload[key] });
+                  console.log(`[Firestore Client Link] Gravado diretamente no Firestore para a chave: ${key}`);
+                } catch (setErr: any) {
+                  console.error(`Erro ao gravar chave '${key}' diretamente no Firestore:`, setErr);
+                }
+              }
+            }
+          } else {
+            console.warn("[Firestore Client Link] Firestore não inicializado no cliente. Não foi possível persistir diretamente na nuvem.");
+          }
         }
       }
     }, 50);
@@ -168,8 +194,9 @@ export default function App() {
     const payloadKeys = Object.keys(payload);
     if (payloadKeys.length > 0) {
       pendingUpdatesRef.current = {}; // Clear accumulator
+      let sseOrServerSuccess = false;
       try {
-        await fetch('/api/db', {
+        const res = await fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -177,8 +204,32 @@ export default function App() {
             user: currentUser ? { id: currentUser.id, name: currentUser.name, role: currentUser.role } : null
           }),
         });
+        if (res.ok) {
+          sseOrServerSuccess = true;
+        }
       } catch (err) {
         console.error('Failed to flush database updates:', err);
+      }
+
+      // If the server update failed (e.g., on GitHub Pages), write directly to Firestore!
+      if (!sseOrServerSuccess) {
+        console.log("[Firestore Client Link] Servidor indisponível ou em produção (GitHub Pages). Gravando diretamente no Firestore...");
+        const db = getClientFirestore();
+        if (db) {
+          for (const key of payloadKeys) {
+            if (payload[key] !== undefined && DB_KEYS.includes(key)) {
+              const docRef = doc(db, "app_state", key);
+              try {
+                await setDoc(docRef, { data: payload[key] });
+                console.log(`[Firestore Client Link] Gravado diretamente no Firestore para a chave: ${key}`);
+              } catch (setErr: any) {
+                console.error(`Erro ao gravar chave '${key}' diretamente no Firestore:`, setErr);
+              }
+            }
+          }
+        } else {
+          console.warn("[Firestore Client Link] Firestore não inicializado no cliente. Não foi possível persistir diretamente na nuvem.");
+        }
       }
     }
   };
@@ -318,23 +369,11 @@ export default function App() {
 
     const initClientFirebase = async () => {
       try {
-        let config = firebaseConfig || DEFAULT_FIREBASE_CONFIG;
-        if (!firebaseConfig) {
-          try {
-            const res = await fetch('/api/firebase/config');
-            if (res.ok) {
-              const data = await res.json();
-              if (data.success && data.config) {
-                config = data.config;
-              }
-            }
-          } catch (e) {
-            console.warn("Could not fetch Firebase config from server, using default", e);
-          }
+        const db = getClientFirestore();
+        if (!db) {
+          console.warn("[Firestore Client Link] Firestore could not be initialized");
+          return;
         }
-
-        const app = getApps().length === 0 ? initializeApp(config) : getApp();
-        const db = getFirestore(app);
 
         console.log("[Firestore Client Link] Conectando aos listeners em tempo real...");
 

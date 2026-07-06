@@ -72,14 +72,31 @@ export class ImageDB {
     });
 
     // Replicate to server asynchronously
+    let replicated = false;
     try {
-      await fetch('/api/photos', {
+      const res = await fetch('/api/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photo: newRecord })
       });
+      if (res.ok) replicated = true;
     } catch (e) {
       console.warn('Erro ao replicar foto para o servidor:', e);
+    }
+
+    if (!replicated) {
+      try {
+        const { getClientFirestore } = await import('./firebaseClient');
+        const db = getClientFirestore();
+        if (db) {
+          const { doc, setDoc } = await import('firebase/firestore');
+          const docRef = doc(db, 'photos', newRecord.id);
+          await setDoc(docRef, newRecord);
+          console.log('[Firestore Client Link] Foto salva diretamente no Firestore:', newRecord.id);
+        }
+      } catch (err) {
+        console.error('[Firestore Client Link] Erro ao salvar foto no Firestore:', err);
+      }
     }
 
     return newRecord;
@@ -121,6 +138,7 @@ export class ImageDB {
    * Background task to sync photos from the server into the local IndexedDB
    */
   private static async syncPhotosFromServer(auditId: string): Promise<void> {
+    let synced = false;
     try {
       const res = await fetch(`/api/photos?auditId=${encodeURIComponent(auditId)}`);
       if (res.ok) {
@@ -139,10 +157,45 @@ export class ImageDB {
               };
             });
           });
+          synced = true;
         }
       }
     } catch (e) {
       console.warn('Erro ao sincronizar fotos do servidor para auditoria:', e);
+    }
+
+    if (!synced) {
+      try {
+        const { getClientFirestore } = await import('./firebaseClient');
+        const db = getClientFirestore();
+        if (db) {
+          const { collection, query, where, getDocs } = await import('firebase/firestore');
+          const photosCol = collection(db, 'photos');
+          const q = query(photosCol, where('auditId', '==', auditId));
+          const snap = await getDocs(q);
+          const photos: PhotoRecord[] = [];
+          snap.forEach(docSnap => {
+            photos.push(docSnap.data() as PhotoRecord);
+          });
+          if (photos.length > 0) {
+            const localDb = await this.getDB();
+            await new Promise<void>((resolve) => {
+              const transaction = localDb.transaction(STORE_NAME, 'readwrite');
+              const store = transaction.objectStore(STORE_NAME);
+              let count = 0;
+              photos.forEach((photo) => {
+                const req = store.put(photo);
+                req.onsuccess = req.onerror = () => {
+                  count++;
+                  if (count === photos.length) resolve();
+                };
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Firestore Client Link] Erro ao sincronizar fotos diretamente do Firestore:', err);
+      }
     }
   }
 
@@ -177,6 +230,7 @@ export class ImageDB {
    * Background task to sync all photos from the server into the local IndexedDB
    */
   private static async syncAllPhotosFromServer(): Promise<void> {
+    let synced = false;
     try {
       const res = await fetch('/api/photos');
       if (res.ok) {
@@ -195,10 +249,44 @@ export class ImageDB {
               };
             });
           });
+          synced = true;
         }
       }
     } catch (e) {
       console.warn('Erro ao sincronizar todas as fotos do servidor:', e);
+    }
+
+    if (!synced) {
+      try {
+        const { getClientFirestore } = await import('./firebaseClient');
+        const db = getClientFirestore();
+        if (db) {
+          const { collection, getDocs } = await import('firebase/firestore');
+          const photosCol = collection(db, 'photos');
+          const snap = await getDocs(photosCol);
+          const photos: PhotoRecord[] = [];
+          snap.forEach(docSnap => {
+            photos.push(docSnap.data() as PhotoRecord);
+          });
+          if (photos.length > 0) {
+            const localDb = await this.getDB();
+            await new Promise<void>((resolve) => {
+              const transaction = localDb.transaction(STORE_NAME, 'readwrite');
+              const store = transaction.objectStore(STORE_NAME);
+              let count = 0;
+              photos.forEach((photo) => {
+                const req = store.put(photo);
+                req.onsuccess = req.onerror = () => {
+                  count++;
+                  if (count === photos.length) resolve();
+                };
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Firestore Client Link] Erro ao sincronizar todas as fotos diretamente do Firestore:', err);
+      }
     }
   }
 
@@ -218,10 +306,27 @@ export class ImageDB {
     });
 
     // Delete on server
+    let deleted = false;
     try {
-      await fetch(`/api/photos/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' });
+      if (res.ok) deleted = true;
     } catch (e) {
       console.warn('Erro ao deletar foto do servidor:', e);
+    }
+
+    if (!deleted) {
+      try {
+        const { getClientFirestore } = await import('./firebaseClient');
+        const db = getClientFirestore();
+        if (db) {
+          const { doc, deleteDoc } = await import('firebase/firestore');
+          const docRef = doc(db, 'photos', id);
+          await deleteDoc(docRef);
+          console.log('[Firestore Client Link] Foto deletada diretamente do Firestore:', id);
+        }
+      } catch (err) {
+        console.error('[Firestore Client Link] Erro ao deletar foto do Firestore:', err);
+      }
     }
   }
 
@@ -241,10 +346,29 @@ export class ImageDB {
     });
 
     // Clear on server
+    let cleared = false;
     try {
-      await fetch('/api/photos/clear', { method: 'POST' });
+      const res = await fetch('/api/photos/clear', { method: 'POST' });
+      if (res.ok) cleared = true;
     } catch (e) {
       console.warn('Erro ao limpar fotos do servidor:', e);
+    }
+
+    if (!cleared) {
+      try {
+        const { getClientFirestore } = await import('./firebaseClient');
+        const db = getClientFirestore();
+        if (db) {
+          const { collection, getDocs, deleteDoc } = await import('firebase/firestore');
+          const photosCol = collection(db, 'photos');
+          const snap = await getDocs(photosCol);
+          const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+          await Promise.all(deletePromises);
+          console.log('[Firestore Client Link] Todas as fotos limpas diretamente no Firestore');
+        }
+      } catch (err) {
+        console.error('[Firestore Client Link] Erro ao limpar fotos no Firestore:', err);
+      }
     }
   }
 
@@ -279,6 +403,7 @@ export class ImageDB {
     });
 
     // Prune on server
+    let serverPruned = false;
     try {
       const res = await fetch('/api/photos/prune', {
         method: 'POST',
@@ -289,10 +414,33 @@ export class ImageDB {
         const data = await res.json();
         if (data.success && data.prunedCount !== undefined) {
           prunedCount = data.prunedCount;
+          serverPruned = true;
         }
       }
     } catch (e) {
       console.warn('Erro ao podar fotos no servidor:', e);
+    }
+
+    if (!serverPruned) {
+      try {
+        const { getClientFirestore } = await import('./firebaseClient');
+        const db = getClientFirestore();
+        const toPrune = photos.filter((p: any) => {
+          const photoTime = new Date(p.timestamp).getTime();
+          return photoTime < cutoffMs;
+        });
+        if (db && toPrune.length > 0) {
+          const { doc, deleteDoc } = await import('firebase/firestore');
+          const deletePromises = toPrune.map((p: any) => {
+            const docRef = doc(db, 'photos', p.id);
+            return deleteDoc(docRef);
+          });
+          await Promise.all(deletePromises);
+          console.log('[Firestore Client Link] Fotos podadas diretamente no Firestore');
+        }
+      } catch (err) {
+        console.error('[Firestore Client Link] Erro ao podar fotos no Firestore:', err);
+      }
     }
 
     return { prunedCount };
