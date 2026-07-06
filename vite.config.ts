@@ -3,9 +3,12 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
+const repositoryName = process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : '';
+
 export default defineConfig(() => {
   return {
-    base: './',
+    base: isGithubActions ? `/${repositoryName}/` : './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
