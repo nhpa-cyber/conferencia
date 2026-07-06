@@ -308,6 +308,16 @@ export default function Header({
                   <Database className="h-3.5 w-3.5 shrink-0" />
                   <span>Firebase</span>
                 </button>
+                <button
+                  id="nav_gestor_registros"
+                  onClick={() => setActiveTab('registros_auditoria')}
+                  className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium transition-all shrink-0 ${
+                    activeTab === 'registros_auditoria' ? 'bg-amber-500 text-slate-950 shadow-sm font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Shield className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                  <span>Registros</span>
+                </button>
               </>
             )}
           </div>
@@ -626,6 +636,14 @@ export default function Header({
                 }`}
               >
                 Firebase
+              </button>
+              <button
+                onClick={() => setActiveTab('registros_auditoria')}
+                className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  activeTab === 'registros_auditoria' ? 'bg-amber-500 text-slate-950' : 'text-slate-400'
+                }`}
+              >
+                Registros
               </button>
             </>
           )}

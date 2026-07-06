@@ -11,10 +11,10 @@ import MonitoramentoView from './components/MonitoramentoView';
 import PlatformManual from './components/PlatformManual';
 import AIAgentChat from './components/AIAgentChat';
 import FirebaseConfigView from './components/FirebaseConfigView';
+import AuditLogsView from './components/AuditLogsView';
 import { ClipboardCheck, ShieldCheck, BarChart3, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
-import { getClientFirestore } from "./firebaseClient";
+import { getClientFirestore, logSystemAction } from "./firebaseClient";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
 const DEFAULT_FIREBASE_CONFIG = {
   projectId: "armazemfacil-b2292",
@@ -542,30 +542,256 @@ export default function App() {
 
   // Sync state changes back to AppStore (localStorage) and Server
   const handleSaveUsers = (newUsers: User[]) => {
+    const oldUsers = users;
+    if (oldUsers.length < newUsers.length) {
+      const added = newUsers.filter(n => !oldUsers.some(o => o.id === n.id))[0];
+      if (added) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "CRIOU",
+          affectedCollection: "users",
+          affectedId: added.id,
+          summary: `Cadastrou o usuário ${added.name} com o perfil ${added.role}.`,
+          currentUser
+        });
+      }
+    } else if (oldUsers.length > newUsers.length) {
+      const removed = oldUsers.filter(o => !newUsers.some(n => n.id === o.id))[0];
+      if (removed) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EXCLUIU",
+          affectedCollection: "users",
+          affectedId: removed.id,
+          summary: `Excluiu o usuário ${removed.name} (Perfil: ${removed.role}).`,
+          currentUser
+        });
+      }
+    } else {
+      const edited = newUsers.find(n => {
+        const old = oldUsers.find(o => o.id === n.id);
+        return old && JSON.stringify(old) !== JSON.stringify(n);
+      });
+      if (edited) {
+        const old = oldUsers.find(o => o.id === edited.id);
+        let summary = `Atualizou dados do usuário ${edited.name}.`;
+        if (old && old.role !== edited.role) {
+          summary = `Alterou as permissões do usuário ${edited.name} de ${old.role} para ${edited.role}.`;
+        }
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EDITOU",
+          affectedCollection: "users",
+          affectedId: edited.id,
+          summary,
+          currentUser
+        });
+      }
+    }
+
     setUsers(newUsers);
     AppStore.setUsers(newUsers);
     pushDatabaseToServer({ users: newUsers });
   };
 
   const handleSaveDrivers = (newDrivers: Driver[]) => {
+    const old = drivers;
+    if (old.length < newDrivers.length) {
+      const item = newDrivers.filter(n => !old.some(o => o.id === n.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "CRIOU",
+          affectedCollection: "drivers",
+          affectedId: item.id,
+          summary: `Cadastrou o motorista/ajudante ${item.name} (${item.role}).`,
+          currentUser
+        });
+      }
+    } else if (old.length > newDrivers.length) {
+      const item = old.filter(o => !newDrivers.some(n => n.id === o.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EXCLUIU",
+          affectedCollection: "drivers",
+          affectedId: item.id,
+          summary: `Excluiu o motorista/ajudante ${item.name} (${item.role}).`,
+          currentUser
+        });
+      }
+    } else {
+      const item = newDrivers.find(n => {
+        const prev = old.find(o => o.id === n.id);
+        return prev && JSON.stringify(prev) !== JSON.stringify(n);
+      });
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EDITOU",
+          affectedCollection: "drivers",
+          affectedId: item.id,
+          summary: `Atualizou dados do motorista/ajudante ${item.name} (${item.role}).`,
+          currentUser
+        });
+      }
+    }
+
     setDrivers(newDrivers);
     AppStore.setDrivers(newDrivers);
     pushDatabaseToServer({ drivers: newDrivers });
   };
 
   const handleSaveVehicles = (newVehicles: Vehicle[]) => {
+    const old = vehicles;
+    if (old.length < newVehicles.length) {
+      const item = newVehicles.filter(n => !old.some(o => o.plate === n.plate))[0];
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "CRIOU",
+          affectedCollection: "vehicles",
+          affectedId: item.plate,
+          summary: `Cadastrou o veículo placa ${item.plate} (Capacidade: ${item.capacityPallets} paletes).`,
+          currentUser
+        });
+      }
+    } else if (old.length > newVehicles.length) {
+      const item = old.filter(o => !newVehicles.some(n => n.plate === o.plate))[0];
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EXCLUIU",
+          affectedCollection: "vehicles",
+          affectedId: item.plate,
+          summary: `Excluiu o veículo placa ${item.plate}.`,
+          currentUser
+        });
+      }
+    } else {
+      const item = newVehicles.find(n => {
+        const prev = old.find(o => o.plate === n.plate);
+        return prev && JSON.stringify(prev) !== JSON.stringify(n);
+      });
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EDITOU",
+          affectedCollection: "vehicles",
+          affectedId: item.plate,
+          summary: `Atualizou dados do veículo placa ${item.plate}.`,
+          currentUser
+        });
+      }
+    }
+
     setVehicles(newVehicles);
     AppStore.setVehicles(newVehicles);
     pushDatabaseToServer({ vehicles: newVehicles });
   };
 
   const handleSaveProducts = (newProducts: Product[]) => {
+    const old = products;
+    if (old.length < newProducts.length) {
+      const item = newProducts.filter(n => !old.some(o => o.code === n.code))[0];
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "CRIOU",
+          affectedCollection: "products",
+          affectedId: item.code,
+          summary: `Cadastrou o produto ${item.description} (Código: ${item.code}).`,
+          currentUser
+        });
+      }
+    } else if (old.length > newProducts.length) {
+      const item = old.filter(o => !newProducts.some(n => n.code === o.code))[0];
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EXCLUIU",
+          affectedCollection: "products",
+          affectedId: item.code,
+          summary: `Excluiu o produto ${item.description} (Código: ${item.code}).`,
+          currentUser
+        });
+      }
+    } else {
+      const item = newProducts.find(n => {
+        const prev = old.find(o => o.code === n.code);
+        return prev && JSON.stringify(prev) !== JSON.stringify(n);
+      });
+      if (item) {
+        logSystemAction({
+          module: "CADASTROS",
+          actionType: "EDITOU",
+          affectedCollection: "products",
+          affectedId: item.code,
+          summary: `Atualizou os dados do produto ${item.description}.`,
+          currentUser
+        });
+      }
+    }
+
     setProducts(newProducts);
     AppStore.setProducts(newProducts);
     pushDatabaseToServer({ products: newProducts });
   };
 
   const handleSaveAudits = (newAudits: AuditSession[]) => {
+    const old = audits;
+    if (old.length < newAudits.length) {
+      const item = newAudits.filter(n => !old.some(o => o.id === n.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "CONFERENCIA",
+          actionType: "CRIOU",
+          affectedCollection: "audits",
+          affectedId: item.id,
+          summary: `Iniciou nova conferência física para o mapa ${item.routeMap} (Placa: ${item.plate}).`,
+          currentUser
+        });
+      }
+    } else if (old.length > newAudits.length) {
+      const item = old.filter(o => !newAudits.some(n => n.id === o.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "CONFERENCIA",
+          actionType: "EXCLUIU",
+          affectedCollection: "audits",
+          affectedId: item.id,
+          summary: `Excluiu a conferência do mapa ${item.routeMap} (Placa: ${item.plate}).`,
+          currentUser
+        });
+      }
+    } else {
+      const item = newAudits.find(n => {
+        const prev = old.find(o => o.id === n.id);
+        return prev && JSON.stringify(prev) !== JSON.stringify(n);
+      });
+      if (item) {
+        const prev = old.find(o => o.id === item.id);
+        let summary = `Atualizou dados do mapa de auditoria ${item.routeMap}.`;
+        let actType = "EDITOU";
+        if (prev && prev.status !== item.status) {
+          actType = "STATUS";
+          summary = `Alterou o status do mapa de auditoria ${item.routeMap} de "${prev.status}" para "${item.status}".`;
+        } else if (prev && prev.isSuspended !== item.isSuspended) {
+          summary = item.isSuspended 
+            ? `Suspendeu temporariamente a contagem física do mapa ${item.routeMap} (Motivo: ${item.suspensionNotes || 'N/A'}).`
+            : `Retomou a contagem física suspensa do mapa ${item.routeMap}.`;
+        }
+        logSystemAction({
+          module: "CONFERENCIA",
+          actionType: actType,
+          affectedCollection: "audits",
+          affectedId: item.id,
+          summary,
+          currentUser
+        });
+      }
+    }
+
     setAudits(newAudits);
     AppStore.setAudits(newAudits);
     pushDatabaseToServer({ audits: newAudits });
@@ -584,18 +810,125 @@ export default function App() {
   };
 
   const handleSaveImportedRoutes = (newRoutes: ImportedRoute[]) => {
+    const old = importedRoutes;
+    if (old.length < newRoutes.length) {
+      const item = newRoutes.filter(n => !old.some(o => o.id === n.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "SINCRONIZADOR",
+          actionType: "CRIOU",
+          affectedCollection: "importedRoutes",
+          affectedId: item.id,
+          summary: `Importou nova planilha de rota para o mapa ${item.routeMap} (Placa: ${item.plate}).`,
+          currentUser
+        });
+      }
+    } else if (old.length > newRoutes.length) {
+      const item = old.filter(o => !newRoutes.some(n => n.id === o.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "SINCRONIZADOR",
+          actionType: "EXCLUIU",
+          affectedCollection: "importedRoutes",
+          affectedId: item.id,
+          summary: `Excluiu a rota importada do mapa ${item.routeMap}.`,
+          currentUser
+        });
+      }
+    } else {
+      const item = newRoutes.find(n => {
+        const prev = old.find(o => o.id === n.id);
+        return prev && JSON.stringify(prev) !== JSON.stringify(n);
+      });
+      if (item) {
+        const prev = old.find(o => o.id === item.id);
+        let summary = `Atualizou dados da rota importada do mapa ${item.routeMap}.`;
+        let actType = "EDITOU";
+        if (prev && prev.status !== item.status) {
+          actType = "STATUS";
+          summary = `Alterou o status do mapa importado ${item.routeMap} de "${prev.status}" para "${item.status}".`;
+        }
+        logSystemAction({
+          module: "SINCRONIZADOR",
+          actionType: actType,
+          affectedCollection: "importedRoutes",
+          affectedId: item.id,
+          summary,
+          currentUser
+        });
+      }
+    }
+
     setImportedRoutes(newRoutes);
     AppStore.setImportedRoutes(newRoutes);
     pushDatabaseToServer({ importedRoutes: newRoutes });
   };
 
   const handleSaveVales = (newVales: Vale[]) => {
+    const old = vales;
+    if (old.length < newVales.length) {
+      const item = newVales.filter(n => !old.some(o => o.id === n.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "VALES",
+          actionType: "CRIOU",
+          affectedCollection: "vales",
+          affectedId: item.id,
+          summary: `Gerou desconto/vale de R$ ${item.valor.toFixed(2)} para ${item.colaboradorName} (${item.colaboradorRole}) no mapa ${item.routeMap || 'N/A'}.`,
+          currentUser
+        });
+      }
+    } else if (old.length > newVales.length) {
+      const item = old.filter(o => !newVales.some(n => n.id === o.id))[0];
+      if (item) {
+        logSystemAction({
+          module: "VALES",
+          actionType: "EXCLUIU",
+          affectedCollection: "vales",
+          affectedId: item.id,
+          summary: `Removeu o vale ID ${item.id} de ${item.colaboradorName}.`,
+          currentUser
+        });
+      }
+    } else {
+      const item = newVales.find(n => {
+        const prev = old.find(o => o.id === n.id);
+        return prev && JSON.stringify(prev) !== JSON.stringify(n);
+      });
+      if (item) {
+        const prev = old.find(o => o.id === item.id);
+        let summary = `Atualizou dados do vale ID ${item.id}.`;
+        let actType = "EDITOU";
+        if (prev && prev.status !== item.status) {
+          actType = "STATUS";
+          summary = `Alterou o status do vale ID ${item.id} de ${item.colaboradorName} de "${prev.status}" para "${item.status}".`;
+        }
+        logSystemAction({
+          module: "VALES",
+          actionType: actType,
+          affectedCollection: "vales",
+          affectedId: item.id,
+          summary,
+          currentUser
+        });
+      }
+    }
+
     setVales(newVales);
     AppStore.setVales(newVales);
     pushDatabaseToServer({ vales: newVales });
   };
 
   const handleSaveFirebaseConfig = (config: FirebaseConfig | null) => {
+    logSystemAction({
+      module: "SISTEMA",
+      actionType: "ATUALIZOU",
+      affectedCollection: "firebaseConfig",
+      affectedId: config?.projectId || "N/A",
+      summary: `Atualizou os parâmetros de configuração do Firebase do projeto para: ${config?.projectId || 'Padrão'}.`,
+      currentUser
+    });
+
     setFirebaseConfig(config);
     AppStore.setFirebaseConfig(config);
     pushDatabaseToServer({ firebaseConfig: config });
@@ -636,9 +969,45 @@ export default function App() {
       setActiveTab('monitoramento_view');
     }
     fetchLatestServerData();
+
+    // Log login action
+    const formatRole = (r: string) => {
+      if (r === 'gestor') return 'Gestor Master';
+      if (r === 'auxiliar_logistica') return 'Auxiliar de Logística (Fiscal)';
+      if (r === 'conferente') return 'Conferente de Pátio';
+      if (r === 'monitoramento') return 'Monitoramento';
+      return r;
+    };
+    logSystemAction({
+      module: "SISTEMA",
+      actionType: "LOGIN",
+      affectedCollection: "users",
+      affectedId: user.id,
+      summary: `Usuário ${user.name} (${formatRole(user.role)}) realizou login com sucesso no sistema.`,
+      currentUser: user
+    });
   };
 
   const handleLogout = async () => {
+    // Log logout action before state cleared
+    if (currentUser) {
+      const formatRole = (r: string) => {
+        if (r === 'gestor') return 'Gestor Master';
+        if (r === 'auxiliar_logistica') return 'Auxiliar de Logística (Fiscal)';
+        if (r === 'conferente') return 'Conferente de Pátio';
+        if (r === 'monitoramento') return 'Monitoramento';
+        return r;
+      };
+      logSystemAction({
+        module: "SISTEMA",
+        actionType: "LOGOUT",
+        affectedCollection: "users",
+        affectedId: currentUser.id,
+        summary: `Usuário ${currentUser.name} (${formatRole(currentUser.role)}) realizou logout do sistema.`,
+        currentUser: currentUser
+      });
+    }
+
     await flushPendingUpdates();
     setIsAuthenticated(false);
     localStorage.removeItem('logiroute_is_authenticated');
@@ -894,6 +1263,10 @@ export default function App() {
                 initialConfig={firebaseConfig}
                 onSaveConfig={handleSaveFirebaseConfig}
               />
+            )}
+
+            {activeTab === 'registros_auditoria' && (
+              <AuditLogsView currentUser={currentUser} />
             )}
           </>
         )}

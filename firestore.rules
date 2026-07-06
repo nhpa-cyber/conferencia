@@ -40,5 +40,10 @@ service cloud.firestore {
     match /photos/{photoId} {
       allow read, write: if true;
     }
+
+    // Secure the system_logs collection
+    match /system_logs/{logId} {
+      allow read, write: if true;
+    }
   }
 }
