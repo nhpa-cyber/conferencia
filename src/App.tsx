@@ -12,6 +12,25 @@ import PlatformManual from './components/PlatformManual';
 import AIAgentChat from './components/AIAgentChat';
 import FirebaseConfigView from './components/FirebaseConfigView';
 import { ClipboardCheck, ShieldCheck, BarChart3, AlertCircle, Bell, CheckCircle2 } from 'lucide-react';
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, doc, onSnapshot } from "firebase/firestore";
+
+const DEFAULT_FIREBASE_CONFIG = {
+  projectId: "armazemfacil-b2292",
+  appId: "1:688234941301:web:153e2ad3f634379fe3213c",
+  apiKey: "AIzaSyA_ykhJGRkIDbPuDNYooMIVvB2DeVzp2VE",
+  authDomain: "armazemfacil-b2292.firebaseapp.com",
+  firestoreDatabaseId: "(default)",
+  storageBucket: "armazemfacil-b2292.appspot.com",
+  messagingSenderId: "688234941301",
+  measurementId: "G-6HFDEKWVDB"
+};
+
+const DB_KEYS = [
+  "users", "drivers", "vehicles", "products", "activeAssets", 
+  "audits", "vales", "returnForecasts", "fiscalAlerts", 
+  "importedRoutes", "audit_logs"
+];
 
 export default function App() {
   const lastWriteTime = useRef<number>(0);
@@ -138,6 +157,32 @@ export default function App() {
     }, 50);
   };
 
+  // Flush any pending batched database updates to server immediately and wait for completion
+  const flushPendingUpdates = async () => {
+    if (pushTimeoutRef.current) {
+      clearTimeout(pushTimeoutRef.current);
+      pushTimeoutRef.current = null;
+    }
+
+    const payload = { ...pendingUpdatesRef.current };
+    const payloadKeys = Object.keys(payload);
+    if (payloadKeys.length > 0) {
+      pendingUpdatesRef.current = {}; // Clear accumulator
+      try {
+        await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            db: payload,
+            user: currentUser ? { id: currentUser.id, name: currentUser.name, role: currentUser.role } : null
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to flush database updates:', err);
+      }
+    }
+  };
+
   // Helper to repair missing or broken product descriptions
   const repairProductsList = (list: Product[]) => {
     if (!list) return [];
@@ -150,6 +195,48 @@ export default function App() {
       }
       return p;
     });
+  };
+
+  // 2. Fetch latest online database from server
+  const fetchLatestServerData = async () => {
+    await flushPendingUpdates();
+    try {
+      const res = await fetch('/api/db');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.db) {
+          const db = data.db;
+          const freshUserId = localStorage.getItem('logiroute_authenticated_user_id');
+          if (db.users && db.users.length > 0) {
+            setUsers(db.users);
+            AppStore.setUsers(db.users);
+            if (freshUserId) {
+              const matchedUser = db.users.find((u: User) => u.id === freshUserId);
+              if (matchedUser) setCurrentUser(matchedUser);
+            }
+          }
+          if (db.drivers) { setDrivers(db.drivers); AppStore.setDrivers(db.drivers); }
+          if (db.vehicles) { setVehicles(db.vehicles); AppStore.setVehicles(db.vehicles); }
+          if (db.products) {
+            const repaired = repairProductsList(db.products);
+            setProducts(repaired);
+            AppStore.setProducts(repaired);
+          }
+          if (db.activeAssets) { setActiveAssets(db.activeAssets); AppStore.setActiveAssets(db.activeAssets); }
+          if (db.audits) { setAudits(db.audits); AppStore.setAudits(db.audits); }
+          if (db.vales) { setVales(db.vales); AppStore.setVales(db.vales); }
+          if (db.returnForecasts) { setReturnForecasts(db.returnForecasts); AppStore.setReturnForecasts(db.returnForecasts); }
+          if (db.fiscalAlerts) { setFiscalAlerts(db.fiscalAlerts); AppStore.setFiscalAlerts(db.fiscalAlerts); }
+          if (db.importedRoutes) { setImportedRoutes(db.importedRoutes); AppStore.setImportedRoutes(db.importedRoutes); }
+          if (db.audit_logs) { setAuditLogs(db.audit_logs); AppStore.setAuditLogs(db.audit_logs); }
+          if (db.firebaseConfig !== undefined) { setFirebaseConfig(db.firebaseConfig); AppStore.setFirebaseConfig(db.firebaseConfig); }
+        } else {
+          console.log("Banco de dados do servidor está em branco ou indisponível. Ignorando auto-sobreposição para segurança.");
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching server database:', err);
+    }
   };
 
   // Load all databases from store on mount and establish server sync
@@ -175,48 +262,9 @@ export default function App() {
     setCurrentUser(defaultUser || null);
 
     // 2. Fetch latest online database from server
-    const fetchLatestServerData = async () => {
-      try {
-        const res = await fetch('/api/db');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.db) {
-            const db = data.db;
-            if (db.users && db.users.length > 0) {
-              setUsers(db.users);
-              AppStore.setUsers(db.users);
-              if (savedUserId) {
-                const matchedUser = db.users.find((u: User) => u.id === savedUserId);
-                if (matchedUser) setCurrentUser(matchedUser);
-              }
-            }
-            if (db.drivers) { setDrivers(db.drivers); AppStore.setDrivers(db.drivers); }
-            if (db.vehicles) { setVehicles(db.vehicles); AppStore.setVehicles(db.vehicles); }
-            if (db.products) {
-              const repaired = repairProductsList(db.products);
-              setProducts(repaired);
-              AppStore.setProducts(repaired);
-            }
-            if (db.activeAssets) { setActiveAssets(db.activeAssets); AppStore.setActiveAssets(db.activeAssets); }
-            if (db.audits) { setAudits(db.audits); AppStore.setAudits(db.audits); }
-            if (db.vales) { setVales(db.vales); AppStore.setVales(db.vales); }
-            if (db.returnForecasts) { setReturnForecasts(db.returnForecasts); AppStore.setReturnForecasts(db.returnForecasts); }
-            if (db.fiscalAlerts) { setFiscalAlerts(db.fiscalAlerts); AppStore.setFiscalAlerts(db.fiscalAlerts); }
-            if (db.importedRoutes) { setImportedRoutes(db.importedRoutes); AppStore.setImportedRoutes(db.importedRoutes); }
-            if (db.audit_logs) { setAuditLogs(db.audit_logs); AppStore.setAuditLogs(db.audit_logs); }
-            if (db.firebaseConfig !== undefined) { setFirebaseConfig(db.firebaseConfig); AppStore.setFirebaseConfig(db.firebaseConfig); }
-          } else {
-            console.log("Banco de dados do servidor está em branco ou indisponível. Ignorando auto-sobreposição para segurança.");
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching server database:', err);
-      }
-    };
-
     fetchLatestServerData();
 
-    // 3. Setup periodic backup polling every 20 seconds
+    // 3. Setup periodic backup polling every 30 seconds as fallback
     const interval = setInterval(async () => {
       try {
         // Skip polling if there was a recent write on this client to avoid race conditions
@@ -259,85 +307,130 @@ export default function App() {
       } catch (err) {
         console.error('Polling database sync error:', err);
       }
-    }, 20000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // 4. Setup real-time database updates via Server-Sent Events (SSE)
+  // 4. Real-time synchronization via direct Firestore onSnapshot listeners
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: any = null;
+    let unsubscribes: (() => void)[] = [];
 
-    const connectSSE = () => {
-      console.log("Conectando ao canal de sincronização em tempo real (SSE)...");
-      eventSource = new EventSource('/api/db/events');
+    const initClientFirebase = async () => {
+      try {
+        let config = firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+        if (!firebaseConfig) {
+          try {
+            const res = await fetch('/api/firebase/config');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && data.config) {
+                config = data.config;
+              }
+            }
+          } catch (e) {
+            console.warn("Could not fetch Firebase config from server, using default", e);
+          }
+        }
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data && data.db) {
-            const db = data.db;
-            
+        const app = getApps().length === 0 ? initializeApp(config) : getApp();
+        const db = getFirestore(app);
+
+        console.log("[Firestore Client Link] Conectando aos listeners em tempo real...");
+
+        unsubscribes = DB_KEYS.map((key) => {
+          const docRef = doc(db, "app_state", key);
+          return onSnapshot(docRef, (docSnap) => {
+            if (!docSnap.exists()) return;
+
+            const docData = docSnap.data();
+            const dataList = docData.data || [];
+
             // Skip applying updates if there was a recent local write on this client to avoid race conditions
             if (Date.now() - lastWriteTime.current < 4000) {
               return;
             }
 
-            if (db.users && db.users.length > 0) {
-              setUsers(db.users);
-              AppStore.setUsers(db.users);
-              const freshUserId = localStorage.getItem('logiroute_authenticated_user_id');
-              if (freshUserId) {
-                const freshUser = db.users.find((u: User) => u.id === freshUserId);
-                if (freshUser) {
-                  setCurrentUser(freshUser);
-                }
-              }
-            }
-            if (db.drivers) { setDrivers(db.drivers); AppStore.setDrivers(db.drivers); }
-            if (db.vehicles) { setVehicles(db.vehicles); AppStore.setVehicles(db.vehicles); }
-            if (db.products) {
-              const repaired = repairProductsList(db.products);
-              setProducts(repaired);
-              AppStore.setProducts(repaired);
-            }
-            if (db.activeAssets) { setActiveAssets(db.activeAssets); AppStore.setActiveAssets(db.activeAssets); }
-            if (db.audits) { setAudits(db.audits); AppStore.setAudits(db.audits); }
-            if (db.vales) { setVales(db.vales); AppStore.setVales(db.vales); }
-            if (db.returnForecasts) { setReturnForecasts(db.returnForecasts); AppStore.setReturnForecasts(db.returnForecasts); }
-            if (db.fiscalAlerts) { setFiscalAlerts(db.fiscalAlerts); AppStore.setFiscalAlerts(db.fiscalAlerts); }
-            if (db.importedRoutes) { setImportedRoutes(db.importedRoutes); AppStore.setImportedRoutes(db.importedRoutes); }
-            if (db.audit_logs) { setAuditLogs(db.audit_logs); AppStore.setAuditLogs(db.audit_logs); }
-            if (db.firebaseConfig !== undefined) { setFirebaseConfig(db.firebaseConfig); AppStore.setFirebaseConfig(db.firebaseConfig); }
-          }
-        } catch (err) {
-          console.error("Error parsing real-time database event:", err);
-        }
-      };
+            console.log(`[Firestore Client Link] Sincronização em tempo real recebida para a chave: ${key}`);
 
-      eventSource.onerror = (err) => {
-        console.warn("Canal de sincronização em tempo real (SSE) desconectado. Tentando reconexão em 5s...", err);
-        if (eventSource) {
-          eventSource.close();
-        }
-        reconnectTimeout = setTimeout(() => {
-          connectSSE();
-        }, 5000);
-      };
+            switch (key) {
+              case "users":
+                if (dataList.length > 0) {
+                  setUsers(dataList);
+                  AppStore.setUsers(dataList);
+                  const freshUserId = localStorage.getItem('logiroute_authenticated_user_id');
+                  if (freshUserId) {
+                    const matchedUser = dataList.find((u: User) => u.id === freshUserId);
+                    if (matchedUser) setCurrentUser(matchedUser);
+                  }
+                }
+                break;
+              case "drivers":
+                setDrivers(dataList);
+                AppStore.setDrivers(dataList);
+                break;
+              case "vehicles":
+                setVehicles(dataList);
+                AppStore.setVehicles(dataList);
+                break;
+              case "products": {
+                const repaired = repairProductsList(dataList);
+                setProducts(repaired);
+                AppStore.setProducts(repaired);
+                break;
+              }
+              case "activeAssets":
+                setActiveAssets(dataList);
+                AppStore.setActiveAssets(dataList);
+                break;
+              case "audits":
+                setAudits(dataList);
+                AppStore.setAudits(dataList);
+                break;
+              case "vales":
+                setVales(dataList);
+                AppStore.setVales(dataList);
+                break;
+              case "returnForecasts":
+                setReturnForecasts(dataList);
+                AppStore.setReturnForecasts(dataList);
+                break;
+              case "fiscalAlerts":
+                setFiscalAlerts(dataList);
+                AppStore.setFiscalAlerts(dataList);
+                break;
+              case "importedRoutes":
+                setImportedRoutes(dataList);
+                AppStore.setImportedRoutes(dataList);
+                break;
+              case "audit_logs":
+                setAuditLogs(dataList);
+                AppStore.setAuditLogs(dataList);
+                break;
+              default:
+                break;
+            }
+          }, (error) => {
+            console.error(`Erro no listener do Firestore para a chave '${key}':`, error);
+          });
+        });
+      } catch (err) {
+        console.error("Falha ao inicializar o Firestore no cliente:", err);
+      }
     };
 
-    connectSSE();
+    initClientFirebase();
 
     return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
+      unsubscribes.forEach(unsub => {
+        try {
+          unsub();
+        } catch (e) {
+          // ignore
+        }
+      });
     };
-  }, []);
+  }, [firebaseConfig]);
 
   // Real-time synchronization across tabs of the SAME browser
   useEffect(() => {
@@ -442,7 +535,8 @@ export default function App() {
   };
 
   // Switch tabs when current user role changes
-  const handleUserChange = (user: User) => {
+  const handleUserChange = async (user: User) => {
+    await flushPendingUpdates();
     setCurrentUser(user);
     localStorage.setItem('logiroute_authenticated_user_id', user.id);
     if (user.role === 'conferente') {
@@ -454,9 +548,11 @@ export default function App() {
     } else if (user.role === 'monitoramento') {
       setActiveTab('monitoramento_view');
     }
+    fetchLatestServerData();
   };
 
-  const handleLoginSuccess = (user: User) => {
+  const handleLoginSuccess = async (user: User) => {
+    await flushPendingUpdates();
     setCurrentUser(user);
     setIsAuthenticated(true);
     localStorage.setItem('logiroute_is_authenticated', 'true');
@@ -472,9 +568,11 @@ export default function App() {
     } else if (user.role === 'monitoramento') {
       setActiveTab('monitoramento_view');
     }
+    fetchLatestServerData();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await flushPendingUpdates();
     setIsAuthenticated(false);
     localStorage.removeItem('logiroute_is_authenticated');
     localStorage.removeItem('logiroute_authenticated_user_id');

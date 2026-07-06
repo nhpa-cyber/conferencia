@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { promises as fs } from "fs";
 
 import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
-import { initializeFirestore, doc, getDoc, setDoc, getDocFromServer, setLogLevel, collection, getDocs } from "firebase/firestore";
+import { initializeFirestore, doc, getDoc, setDoc, getDocFromServer, setLogLevel, collection, getDocs, onSnapshot } from "firebase/firestore";
 
 dotenv.config();
 
@@ -84,6 +84,136 @@ let firestoreLoadedSuccessfully = false;
 
 // Keep track of connected clients for Server-Sent Events (SSE) real-time synchronization
 let clients: any[] = [];
+
+let activeUnsubscribeAppState: (() => void) | null = null;
+let activeUnsubscribePhotos: (() => void) | null = null;
+
+function setupFirestoreListeners() {
+  if (!firestoreDb) return;
+
+  // Clean up any existing listeners first
+  if (activeUnsubscribeAppState) {
+    try {
+      activeUnsubscribeAppState();
+    } catch (e) {
+      console.warn("Erro ao desinscrever listener antigo de app_state:", e);
+    }
+    activeUnsubscribeAppState = null;
+  }
+  if (activeUnsubscribePhotos) {
+    try {
+      activeUnsubscribePhotos();
+    } catch (e) {
+      console.warn("Erro ao desinscrever listener antigo de photos:", e);
+    }
+    activeUnsubscribePhotos = null;
+  }
+
+  console.log("Iniciando listeners em tempo real do Firestore no servidor...");
+
+  try {
+    const colRef = collection(firestoreDb, "app_state");
+    activeUnsubscribeAppState = onSnapshot(colRef, (snapshot) => {
+      let hasChanges = false;
+      if (!dbCache) {
+        dbCache = {};
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        const key = change.doc.id;
+        if (DB_KEYS.includes(key)) {
+          const docData = change.doc.data();
+          const dataList = docData.data || [];
+
+          if (JSON.stringify(dbCache[key]) !== JSON.stringify(dataList)) {
+            console.log(`[Firestore Live Listener] Atualização de chave detectada na nuvem: '${key}'`);
+            dbCache[key] = dataList;
+            hasChanges = true;
+          }
+        }
+      });
+
+      if (hasChanges) {
+        // Salva o estado consolidado no arquivo local database.json
+        fs.writeFile(DB_FILE_PATH, JSON.stringify(dbCache, null, 2), "utf-8")
+          .then(() => {
+            console.log("[Firestore Live Listener] database.json atualizado via alterações na nuvem.");
+          })
+          .catch((err) => {
+            console.error("[Firestore Live Listener] Erro ao salvar database.json:", err);
+          });
+
+        // Transmite em tempo real para todos os clientes conectados via SSE (celular, tablet, pc)
+        if (clients && clients.length > 0) {
+          const payloadStr = JSON.stringify({ type: "update", db: dbCache });
+          clients.forEach(client => {
+            try {
+              client.res.write(`data: ${payloadStr}\n\n`);
+            } catch (err) {
+              // Conexão do cliente fechada
+            }
+          });
+        }
+      }
+    }, (error) => {
+      console.error("Erro no listener em tempo real de app_state:", error);
+    });
+
+    // Ouvir também a coleção de fotos para sincronização em tempo real
+    const photosColRef = collection(firestoreDb, "photos");
+    activeUnsubscribePhotos = onSnapshot(photosColRef, (snapshot) => {
+      let hasChanges = false;
+      if (!dbCache) dbCache = {};
+      if (!dbCache.photos) dbCache.photos = [];
+
+      snapshot.docChanges().forEach((change) => {
+        const photoData = change.doc.data();
+        const photoId = change.doc.id;
+
+        if (change.type === "added" || change.type === "modified") {
+          const index = dbCache.photos.findIndex((p: any) => p.id === photoId);
+          if (index > -1) {
+            if (JSON.stringify(dbCache.photos[index]) !== JSON.stringify(photoData)) {
+              dbCache.photos[index] = photoData;
+              hasChanges = true;
+            }
+          } else {
+            dbCache.photos.push(photoData);
+            hasChanges = true;
+          }
+        } else if (change.type === "removed") {
+          const index = dbCache.photos.findIndex((p: any) => p.id === photoId);
+          if (index > -1) {
+            dbCache.photos.splice(index, 1);
+            hasChanges = true;
+          }
+        }
+      });
+
+      if (hasChanges) {
+        fs.writeFile(DB_FILE_PATH, JSON.stringify(dbCache, null, 2), "utf-8")
+          .then(() => {
+            console.log("[Firestore Live Listener] database.json de fotos atualizado via nuvem.");
+          })
+          .catch(() => {});
+
+        if (clients && clients.length > 0) {
+          const payloadStr = JSON.stringify({ type: "update", db: dbCache });
+          clients.forEach(client => {
+            try {
+              client.res.write(`data: ${payloadStr}\n\n`);
+            } catch (err) {}
+          });
+        }
+      }
+    }, (error) => {
+      console.error("Erro no listener em tempo real de fotos:", error);
+    });
+
+  } catch (err) {
+    console.error("Erro ao configurar listeners do Firestore no servidor:", err);
+  }
+}
 
 // Helper to initialize Firebase App and Firestore
 async function initFirebase() {
@@ -322,6 +452,7 @@ async function loadDatabaseOnStartup() {
         console.log("Cache físico do container atualizado com os dados do Firestore com sucesso.");
         
         firestoreLoadedSuccessfully = true;
+        setupFirestoreListeners();
         return; // Success!
       } catch (err) {
         console.error(`Falha na tentativa de carregar Firestore (Restam ${retries - 1} tentativas):`, err);
